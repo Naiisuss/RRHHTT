@@ -20,10 +20,16 @@ def procesar_tiempos(df_registros, df_horarios):
     df = df_registros.copy()
     horarios = df_horarios.copy()
     
-    # Normalizamos columnas
+    # 1. Normalizamos columnas
     df.columns = df.columns.str.strip().str.upper()
     horarios.columns = horarios.columns.str.strip().str.upper()
     
+    # 🚫 FIX CLAVE: ELIMINAR REGISTROS DEL COMEDOR
+    # Si existe la columna TERMINAL, filtramos y borramos todo lo que diga "COMEDOR"
+    if 'TERMINAL' in df.columns:
+        # Nos quedamos SOLO con las filas que NO (~) contienen la palabra COMEDOR
+        df = df[~df['TERMINAL'].astype(str).str.upper().str.contains('COMEDOR', na=False)]
+
     # Forzamos DNI a número para un cruce perfecto
     if 'DNI' in horarios.columns:
         horarios['DNI'] = pd.to_numeric(horarios['DNI'], errors='coerce').fillna(0).astype('int64')
@@ -51,10 +57,9 @@ def procesar_tiempos(df_registros, df_horarios):
         df['TURNO'] = 'Sin Turno'
         df['FINTURNO'] = pd.NaT
 
-    # 🧹 FIX CLAVE: Limpiador de Turnos para evitar la "Ñ" mutante
+    # Limpiador de Turnos para evitar la "Ñ" mutante
     def limpiar_turno(t):
         t_str = str(t).upper()
-        # Si tiene un "MA" y un "NA", sabemos que quisieron escribir "Mañana"
         if 'MA' in t_str and 'NA' in t_str: 
             return 'Mañana'
         elif 'TARDE' in t_str: 
@@ -63,10 +68,11 @@ def procesar_tiempos(df_registros, df_horarios):
             return 'Noche'
         elif t_str in ['NAN', 'NAT', 'NONE', '']:
             return 'Sin Turno'
-        return str(t).title() # Capitaliza cualquier otra cosa por las dudas
+        return str(t).title() 
         
     df['TURNO'] = df['TURNO'].apply(limpiar_turno)
 
+    # Ordenamos a los empleados cronológicamente
     df = df.sort_values(['LEGAJO', 'Fecha_Hora']).reset_index(drop=True)
     resumen = []
     
